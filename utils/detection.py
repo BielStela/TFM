@@ -12,6 +12,8 @@ from shapely.geometry import Polygon
 from tqdm import tqdm
 import geopandas as gpd
 
+from utils.process_results import remove_sea_polygons, melt_overlapping
+
 
 def overlapping_windows(src, overlap, width, height):
     """"width & height not including overlap i.e requesting a 256x256 window with
@@ -30,12 +32,13 @@ def detect_image(img: str, model_) -> gpd.GeoDataFrame:
     with rasterio.open(img) as src:
         data = {"geometry": [], "confidence": []}
         count = 0
-        for window in tqdm(overlapping_windows(src, 30, 452, 452)):
+        pbar = tqdm(overlapping_windows(src, 30, 452, 452))
+        for window in pbar:
+            pbar.set_postfix({"Pools found": count})
             img_window = reshape_as_image(src.read(window=window))
             detected_bbox = detect.detect_image(model_, img_window, conf_thres=0.15, nms_thres=0.15)
             if detected_bbox.size > 0:
                 count += detected_bbox.shape[0]
-                print(f"Pools detected: {count}", end="\r")
                 # get the window transform matrix
                 transform = rasterio.windows.transform(window, src.transform)
                 for x1, y1, x2, y2, conf, _ in detected_bbox:
@@ -54,7 +57,8 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--dir", dest="dir", type=str, required=True, help="Directory containing the images to use in the detection")
     parser.add_argument("-o", "--out", dest="out", type=str, required=True, help="Directory to save the results")
     parser.add_argument("-m", "--model", dest="model", type=str, required=True, help="Path to model weights")
-    parser.add_argument("-c", "--config", dest="config", type=str, required=True, help="Path to model config")
+    parser.add_argument("-cfg", "--config", dest="config", type=str, required=True, help="Path to model config")
+    parser.add_argument("-cst", "--coastline", dest="coastline", type=str, required=True, help="Path to coastline")
     args = parser.parse_args()
 
     images = list(Path(args.dir).glob("*.tif"))
@@ -71,12 +75,15 @@ if __name__ == "__main__":
     print("Loading model...")
     model = models.load_model(args.config, args.model)
 
-    for img in tqdm(images):
+    for img in images:
         fname = img.name.split(".")[0]
         print("Working on image ", str(img.name))
         res = detect_image(img.resolve(), model)
+        print(f"Detected {res.shape[0]} objects")
+        res = remove_sea_polygons(res, args.coastline)
+        res = melt_overlapping(res)
+        print(f"Saving cleaned results with {res.shape[0]} pool detections")
         out_file = out_path / (fname + ".geojson")
-        print(out_file)
         res.to_file(out_file, driver='GeoJSON')
 
 
