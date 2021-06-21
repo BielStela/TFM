@@ -12,7 +12,7 @@ from shapely.geometry import Polygon
 from tqdm import tqdm
 import geopandas as gpd
 
-from utils.process_results import remove_sea_polygons, melt_overlapping
+from .process_results import remove_sea_polygons, melt_overlapping
 
 
 def overlapping_windows(src, overlap, width, height):
