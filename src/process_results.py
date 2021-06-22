@@ -23,7 +23,7 @@ def melt_overlapping(df: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     points['geometry'] = points['geometry'].centroid
     join_df = gpd.sjoin(merged, points, op='contains')
     join_df = join_df.dissolve(by='polyID', aggfunc='mean')  # mean of confidences
-    join_df = join_df.drop(["index_right", "index"], axis=1)
+    join_df = join_df.drop(["index_right"], axis=1)
     res_bbox = join_df.copy()
     res_bbox["geometry"] = res_bbox.geometry.apply(lambda x: box(*x.bounds))
     res_bbox = res_bbox.set_crs(df.crs)
