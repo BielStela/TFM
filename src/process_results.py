@@ -16,17 +16,17 @@ def melt_overlapping(df: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     # merge overlapping polygons originated from the windowed images
     # Union the overlapping polygons
     print("Melting overlapping polygons...")
-    merged = gpd.GeoDataFrame(geometry=list(df.unary_union))
+    merged = gpd.GeoDataFrame(geometry=list(df.unary_union), crs=df.crs)
     merged['polyID'] = merged.index  # keep poly index
     # create centroids to join later and keep original df data
     points = df.copy()
     points['geometry'] = points['geometry'].centroid
-    join_df = gpd.sjoin(merged.set_crs(points.crs), points, op='contains')
+    join_df = gpd.sjoin(merged, points, op='contains')
     join_df = join_df.dissolve(by='polyID', aggfunc='mean')  # mean of confidences
     join_df = join_df.drop(["index_right", "index"], axis=1)
     res_bbox = join_df.copy()
     res_bbox["geometry"] = res_bbox.geometry.apply(lambda x: box(*x.bounds))
-    res_bbox = res_bbox.set_crs(join_df.crs)
+    res_bbox = res_bbox.set_crs(df.crs)
     return res_bbox
 
 

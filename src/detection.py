@@ -12,7 +12,7 @@ from shapely.geometry import Polygon
 from tqdm import tqdm
 import geopandas as gpd
 
-from .process_results import remove_sea_polygons, melt_overlapping
+from process_results import remove_sea_polygons, melt_overlapping
 
 
 def overlapping_windows(src, overlap, width, height):
@@ -30,15 +30,17 @@ def overlapping_windows(src, overlap, width, height):
 
 def detect_image(img: str, model_) -> gpd.GeoDataFrame:
     with rasterio.open(img) as src:
+
         data = {"geometry": [], "confidence": []}
-        count = 0
+        pools_found = 0
+        # Mask raster with coastline
         pbar = tqdm(overlapping_windows(src, 30, 452, 452))
         for window in pbar:
-            pbar.set_postfix({"Pools found": count})
+            pbar.set_postfix({"Pools found": pools_found})
             img_window = reshape_as_image(src.read(window=window))
             detected_bbox = detect.detect_image(model_, img_window, conf_thres=0.15, nms_thres=0.15)
             if detected_bbox.size > 0:
-                count += detected_bbox.shape[0]
+                pools_found += detected_bbox.shape[0]
                 # get the window transform matrix
                 transform = rasterio.windows.transform(window, src.transform)
                 for x1, y1, x2, y2, conf, _ in detected_bbox:
@@ -49,7 +51,8 @@ def detect_image(img: str, model_) -> gpd.GeoDataFrame:
                     coords = ((geo_x1, geo_y1), (geo_x2, geo_y1), (geo_x2, geo_y2), (geo_x1, geo_y2))
                     data["geometry"].append(Polygon(coords))
                     data["confidence"].append(conf)
-    return gpd.GeoDataFrame(data)
+        results = gpd.GeoDataFrame(data, crs=src.crs)
+    return results
 
 
 if __name__ == "__main__":
