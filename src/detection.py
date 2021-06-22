@@ -33,7 +33,6 @@ def detect_image(img: str, model_) -> gpd.GeoDataFrame:
 
         data = {"geometry": [], "confidence": []}
         pools_found = 0
-        # Mask raster with coastline
         pbar = tqdm(overlapping_windows(src, 30, 452, 452))
         for window in pbar:
             pbar.set_postfix({"Pools found": pools_found})
@@ -82,6 +81,9 @@ if __name__ == "__main__":
         fname = img.name.split(".")[0]
         print("Working on image ", str(img.name))
         res = detect_image(img.resolve(), model)
+        if res.empty:
+            print("No pools found")
+            continue
         print(f"Detected {res.shape[0]} objects")
         res = remove_sea_polygons(res, args.coastline)
         res = melt_overlapping(res)
