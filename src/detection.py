@@ -30,7 +30,6 @@ def overlapping_windows(src, overlap, width, height):
 
 def detect_image(img: str, model_) -> gpd.GeoDataFrame:
     with rasterio.open(img) as src:
-
         data = {"geometry": [], "confidence": []}
         pools_found = 0
         pbar = tqdm(overlapping_windows(src, 30, 452, 452))
@@ -43,12 +42,12 @@ def detect_image(img: str, model_) -> gpd.GeoDataFrame:
                 # get the window transform matrix
                 transform = rasterio.windows.transform(window, src.transform)
                 for x1, y1, x2, y2, conf, _ in detected_bbox:
-                    # transform from pixels coordinates to geografic coordinates
+                    # transform from pixels coordinates to geographic coordinates
                     # using the affine transformation matrix
                     geo_x1, geo_y1 = transform * np.array([x1, y1])
                     geo_x2, geo_y2 = transform * np.array([x2, y2])
-                    coords = ((geo_x1, geo_y1), (geo_x2, geo_y1), (geo_x2, geo_y2), (geo_x1, geo_y2))
-                    data["geometry"].append(Polygon(coords))
+                    bbox_coords = ((geo_x1, geo_y1), (geo_x2, geo_y1), (geo_x2, geo_y2), (geo_x1, geo_y2))
+                    data["geometry"].append(Polygon(bbox_coords))
                     data["confidence"].append(conf)
         results = gpd.GeoDataFrame(data, crs=src.crs)
     return results
