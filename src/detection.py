@@ -28,7 +28,14 @@ def overlapping_windows(src, overlap, width, height):
         yield window
 
 
-def detect_image(img: str, model_) -> gpd.GeoDataFrame:
+def detect_image(img: str, model_, **kwargs) -> gpd.GeoDataFrame:
+    """
+
+    :param img: image name
+    :param model_: instance of Darknet model
+    :param kwargs: kwargs for detect.detect_image of Darknet model
+    :return: GeoDataFrame with the bounding boxes of the detected pools in the image.
+    """
     with rasterio.open(img) as src:
         data = {"geometry": [], "confidence": []}
         pools_found = 0
@@ -36,7 +43,7 @@ def detect_image(img: str, model_) -> gpd.GeoDataFrame:
         for window in pbar:
             pbar.set_postfix({"Pools found": pools_found})
             img_window = reshape_as_image(src.read(window=window))
-            detected_bbox = detect.detect_image(model_, img_window, conf_thres=0.15, nms_thres=0.15)
+            detected_bbox = detect.detect_image(model_, img_window, **kwargs)
             if detected_bbox.size > 0:
                 pools_found += detected_bbox.shape[0]
                 # get the window transform matrix
@@ -79,7 +86,7 @@ if __name__ == "__main__":
     for img in images:
         fname = img.name.split(".")[0]
         print("Working on image ", str(img.name))
-        res = detect_image(img.resolve(), model)
+        res = detect_image(img.resolve(), model, conf_thres=0.15, nms_thres=0.15)
         if res.empty:
             print("No pools found")
             continue
